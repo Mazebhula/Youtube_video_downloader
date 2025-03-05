@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube Video Downloader</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f2f5;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .container {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 500px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #1a73e8;
+            margin-bottom: 1.5rem;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+
+        button {
+            padding: 10px 20px;
+            background-color: #1a73e8;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #1557b0;
+        }
+
+        .status {
+            margin: 1rem 0;
+            text-align: center;
+        }
+
+        .status p {
+            color: #666;
+        }
+
+        .video-info {
+            margin-top: 1.5rem;
+            padding: 1rem;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+        }
+
+        .video-info h2 {
+            font-size: 1.2rem;
+            color: #333;
+            margin-bottom: 1rem;
+        }
+
+        .video-info p {
+            margin: 0.5rem 0;
+            color: #444;
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>YouTube Video Downloader</h1>
+        <form id="downloadForm">
+            <div class="input-group">
+                <input type="text" id="url" name="url" placeholder="Enter YouTube URL" required>
+                <button type="submit">Download</button>
+            </div>
+        </form>
+        
+        <div id="status" class="status">
+            <p id="statusMessage"></p>
+        </div>
+        
+        <div id="videoInfo" class="video-info hidden">
+            <h2>Video Information</h2>
+            <p><strong>Title:</strong> <span id="title"></span></p>
+            <p><strong>Duration:</strong> <span id="duration"></span> seconds</p>
+            <p><strong>Uploader:</strong> <span id="uploader"></span></p>
+            <p><strong>Saved to:</strong> <span id="path"></span></p>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('downloadForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const url = document.getElementById('url').value;
+            const statusMessage = document.getElementById('statusMessage');
+            const videoInfo = document.getElementById('videoInfo');
+
+            statusMessage.textContent = 'Downloading...';
+            videoInfo.classList.add('hidden');
+
+            try {
+                const response = await fetch('/download', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: `url=${encodeURIComponent(url)}`
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    statusMessage.textContent = 'Download completed!';
+                    document.getElementById('title').textContent = data.title;
+                    document.getElementById('duration').textContent = data.duration;
+                    document.getElementById('uploader').textContent = data.uploader;
+                    document.getElementById('path').textContent = data.path;
+                    videoInfo.classList.remove('hidden');
+                } else {
+                    statusMessage.textContent = `Error: ${data.error}`;
+                }
+            } catch (error) {
+                statusMessage.textContent = `Error: ${error.message}`;
+            }
+        });
+    </script>
+</body>
+</html>
