@@ -22,7 +22,7 @@ def download_youtube_video(url, output_path="videos"):
             'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
             'cookiesfrombrowser': ('chrome',),
             'noplaylist': True,
-        }
+        }#written by ds dzebu
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=True)
