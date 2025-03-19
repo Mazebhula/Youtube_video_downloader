@@ -35,11 +35,9 @@ def download_youtube_video(url, output_path="videos"):
             }
     except Exception as e:
         return {'success': False, 'error': str(e)}
-
 @app.route('/')
 def index():
     return render_template('index.html')
-
 @app.route('/download', methods=['POST'])
 def download():
     url = request.form.get('url')
@@ -50,4 +48,4 @@ def download():
     return jsonify(result)
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=False)
