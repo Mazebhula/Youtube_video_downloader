@@ -4,7 +4,7 @@ import os
 
 app = Flask(__name__)
 
-def download_youtube_video(url, output_path="videos"):
+def download_youtube_video(url, output_path="videos", list_formats=False):
     try:
         if output_path is None:
             output_path = os.getcwd()
@@ -13,39 +13,121 @@ def download_youtube_video(url, output_path="videos"):
             os.makedirs(output_path)
 
         ydl_opts = {
-            'format': 'bestvideo+bestaudio/best',
+            'format': 'best[ext=mp4]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best',
             'outtmpl': os.path.join(output_path, '%(title)s.%(ext)s'),
             'merge_output_format': 'mp4',
             'quiet': False,
             'progress': True,
             'geo_bypass': True,
-            'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'cookiesfrombrowser': ('chrome',),
             'noplaylist': True,
+            'ignoreerrors': True,
+            'no_warnings': False,
+            'postprocessors': [{
+                'key': 'FFmpegVideoConvertor',
+                'preferedformat': 'mp4',
+            }],
+            'extractor_args': {
+                'youtube': {
+                    'player_client': ['android', 'web'],
+                    'skip': ['hls', 'dash'],
+                }
+            },
+            'socket_timeout': 30,
+            'retries': 10,
         }#written by ds dzebu
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=True)
+            if list_formats:
+                # Just list available formats without downloading
+                info = ydl.extract_info(url, download=False)
+                formats = info.get('formats', [])
+                print(formats)
+                format_list = ["mp4"]
+                for f in formats:
+                    format_list.append({
+                        'format_id': f.get('format_id', 'Unknown'),
+                        'extension': f.get('ext', 'Unknown'),
+                        'resolution': f.get('resolution', 'Unknown'),
+                        'filesize': f.get('filesize', 'Unknown'),
+                        'format_note': f.get('format_note', '')
+                    })
+                return {
+                    'success': True,
+                    'title': info.get('title', 'Unknown'),
+                    'formats': format_list
+                }
+            
+            try:
+                # First attempt with specified format
+                info = ydl.extract_info(url, download=True)
+            except yt_dlp.utils.DownloadError as e:
+                if "Requested format is not available" in str(e):
+                    # If the requested format fails, try with a more generic format
+                    print("Requested format not available, trying with a more generic format...")
+                    ydl_opts['format'] = 'best'
+                    with yt_dlp.YoutubeDL(ydl_opts) as ydl2:
+                        info = ydl2.extract_info(url, download=True)
+                else:
+                    raise e
+            
             return {
                 'success': True,
                 'title': info.get('title', 'Unknown'),
-                'duration': info.get('duration', 'Unknown'),
+                'duration': info['duration'] if info and 'duration' in info else 'Unknown',
                 'uploader': info.get('uploader', 'Unknown'),
                 'path': output_path
             }
     except Exception as e:
         return {'success': False, 'error': str(e)}
+
 @app.route('/')
 def index():
     return render_template('index.html')
+
 @app.route('/download', methods=['POST'])
 def download():
     url = request.form.get('url')
+    list_formats = request.form.get('list_formats') == 'true'
+    
     if not url:
         return jsonify({'success': False, 'error': 'No URL provided'})
     
-    result = download_youtube_video(url)
+    result = download_youtube_video(url, list_formats=list_formats)
+    return jsonify(result)
+
+@app.route('/formats', methods=['POST'])
+def list_formats():
+    url = request.form.get('url')
+    
+    if not url:
+        return jsonify({'success': False, 'error': 'No URL provided'})
+    
+    result = download_youtube_video(url, list_formats=True)
     return jsonify(result)
 
 if __name__ == '__main__':
-    app.run(debug=False)
+    import socket
+    from werkzeug.serving import is_running_from_reloader
+    
+    # Try to find an available port starting from 5000
+    port = 5000
+    max_port = 5050  # Try ports up to 5050
+    
+    while port <= max_port:
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.bind(('127.0.0.1', port))
+            sock.close()
+            # If we get here, the port is available
+            break
+        except OSError:
+            port += 1
+    
+    if port > max_port:
+        print("Could not find an available port between 5000 and 5050.")
+        exit(1)
+    
+    print(f"Starting server on port {port}")
+    app.run(debug=False, port=port)
