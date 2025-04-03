@@ -12,8 +12,16 @@ def download_youtube_video(url, output_path="videos", list_formats=False):
         if not os.path.exists(output_path):
             os.makedirs(output_path)
 
+        # Define a list of format strings to try in order
+        format_options = [
+            'best[ext=mp4]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best',
+            'bestvideo+bestaudio/best',
+            'best',
+            '22/18/17/36'  # Common YouTube format codes (720p, 360p, etc.)
+        ]
+
         ydl_opts = {
-            'format': 'best[ext=mp4]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best',
+            # We'll set format later in the loop
             'outtmpl': os.path.join(output_path, '%(title)s.%(ext)s'),
             'merge_output_format': 'mp4',
             'quiet': False,
@@ -38,13 +46,12 @@ def download_youtube_video(url, output_path="videos", list_formats=False):
             'retries': 10,
         }#written by ds dzebu
 
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            if list_formats:
-                # Just list available formats without downloading
+        if list_formats:
+            # Just list available formats without downloading
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=False)
                 formats = info.get('formats', [])
-                print(formats)
-                format_list = ["mp4"]
+                format_list = []
                 for f in formats:
                     format_list.append({
                         'format_id': f.get('format_id', 'Unknown'),
@@ -58,27 +65,33 @@ def download_youtube_video(url, output_path="videos", list_formats=False):
                     'title': info.get('title', 'Unknown'),
                     'formats': format_list
                 }
-            
+        
+        # Try each format option until one works
+        last_error = None
+        for format_option in format_options:
             try:
-                # First attempt with specified format
-                info = ydl.extract_info(url, download=True)
+                ydl_opts['format'] = format_option
+                print(f"Trying format: {format_option}")
+                
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    info = ydl.extract_info(url, download=True)
+                    
+                # If we get here, download was successful
+                return {
+                    'success': True,
+                    'title': info.get('title', 'Unknown'),
+                    'duration': info['duration'] if info and 'duration' in info else 'Unknown',
+                    'uploader': info.get('uploader', 'Unknown'),
+                    'path': output_path
+                }
             except yt_dlp.utils.DownloadError as e:
-                if "Requested format is not available" in str(e):
-                    # If the requested format fails, try with a more generic format
-                    print("Requested format not available, trying with a more generic format...")
-                    ydl_opts['format'] = 'best'
-                    with yt_dlp.YoutubeDL(ydl_opts) as ydl2:
-                        info = ydl2.extract_info(url, download=True)
-                else:
-                    raise e
+                last_error = str(e)
+                print(f"Format {format_option} failed: {last_error}")
+                continue  # Try next format
+        
+        # If we get here, all formats failed
+        return {'success': False, 'error': f"All format options failed. Last error: {last_error}"}
             
-            return {
-                'success': True,
-                'title': info.get('title', 'Unknown'),
-                'duration': info['duration'] if info and 'duration' in info else 'Unknown',
-                'uploader': info.get('uploader', 'Unknown'),
-                'path': output_path
-            }
     except Exception as e:
         return {'success': False, 'error': str(e)}
 
