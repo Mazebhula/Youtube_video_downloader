@@ -31,7 +31,7 @@ def download_youtube_video(url, output_path="videos", list_formats=False):
             'cookiesfrombrowser': ('chrome',),
             'noplaylist': True,
             'ignoreerrors': True,
-            'no_warnings': False,
+            'no_warnings': True,
             'postprocessors': [{
                 'key': 'FFmpegVideoConvertor',
                 'preferedformat': 'mp4',
